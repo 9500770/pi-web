@@ -311,6 +311,15 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
   const [error, setError] = useState<string | null>(null);
   const [activeLeafId, setActiveLeafId] = useState<string | null>(null);
   const [messages, setMessages] = useState<AgentMessage[]>([]);
+  // Synchronous mirror of `messages` (refs are not subject to React's async
+  // state batching). Used by handlers that need the latest messages in the
+  // same tick — e.g. deriving the pending tool call for permission dialogs
+  // when message_end and extension_ui_request arrive back-to-back.
+  const messagesRef = useRef<AgentMessage[]>([]);
+  const updateMessages = useCallback((updater: (prev: AgentMessage[]) => AgentMessage[]) => {
+    messagesRef.current = updater(messagesRef.current);
+    setMessages(updater);
+  }, []);
   const [entryIds, setEntryIds] = useState<string[]>([]);
   const [streamState, dispatch] = useReducer(streamReducer, INITIAL_STREAMING_STATE);
   const [agentRunning, setAgentRunning] = useState(false);
@@ -507,7 +516,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
         if (showLoading) {
           setData(null);
           setActiveLeafId(null);
-          setMessages([]);
+          updateMessages(() => []);
           setError(null);
         }
         return null;
@@ -518,7 +527,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
       const persistedMessages = d.context.messages;
       setData(d);
       setActiveLeafId(d.leafId);
-      setMessages(persistedMessages);
+      updateMessages(() => persistedMessages);
       setEntryIds(d.context.entryIds ?? []);
       setCurrentModelOverride((current) => modelSwitchPendingRef.current ? current : null);
       setError(null);
@@ -558,7 +567,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
     } finally {
       if (showLoading && !messagesLoaded) setLoading(false);
     }
-  }, []);
+  }, [updateMessages]);
 
   const loadContext = useCallback(async (sid: string, leafId: string | null) => {
     try {
@@ -568,12 +577,12 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
       const res = await fetch(url);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const d = await res.json() as { context: { messages: AgentMessage[]; entryIds: string[] } };
-      setMessages(d.context.messages);
+      updateMessages(() => d.context.messages);
       setEntryIds(d.context.entryIds ?? []);
     } catch (e) {
       console.error("Failed to load context:", e);
     }
-  }, []);
+  }, [updateMessages]);
 
   const loadTools = useCallback(async (sid: string) => {
     try {
@@ -778,7 +787,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
       case "input":
       case "editor":
         setExtensionDialog(
-          request.details ? request : { ...request, details: derivePendingToolCallDetails(messages) ?? undefined }
+          request.details ? request : { ...request, details: derivePendingToolCallDetails(messagesRef.current) ?? undefined }
         );
         break;
       case "notify": {
@@ -822,7 +831,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
         });
         break;
     }
-  }, [addNotice, opts.chatInputRef, messages]);
+  }, [addNotice, opts.chatInputRef]);
 
   const settleUiStage = useCallback(() => {
     const wasRunning = agentRunningRef.current;
@@ -1183,7 +1192,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
           const deliveredKey = userMessageKey(delivered);
           const optimisticKey = optimisticUserMessageKeyRef.current;
           optimisticUserMessageKeyRef.current = null;
-          setMessages((prev) => {
+          updateMessages((prev) => {
             const last = prev[prev.length - 1];
             if (optimisticKey && last?.role === "user" && userMessageKey(last) === optimisticKey) {
               return optimisticKey === deliveredKey
@@ -1193,7 +1202,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
             return [...prev, delivered];
           });
         } else if (completed) {
-          setMessages((prev) => [...prev, normalizeToolCalls(completed)]);
+          updateMessages((prev) => [...prev, normalizeToolCalls(completed)]);
         }
         dispatch({ type: "end" });
         setAgentPhase({ kind: "waiting_model" });
@@ -1252,7 +1261,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
         handleExtensionUiRequest(event as ExtensionUiRequest);
         break;
     }
-  }, [addNotice, cancelEventStreamGrace, handleExtensionUiRequest, loadSession, notifyPromptStage, onAgentEnd, scheduleEventStreamClose, scrollToBottom, settleUiStage]);
+  }, [addNotice, cancelEventStreamGrace, handleExtensionUiRequest, loadSession, notifyPromptStage, onAgentEnd, scheduleEventStreamClose, scrollToBottom, settleUiStage, updateMessages]);
   handleAgentEventRef.current = handleAgentEvent;
 
   const handleSend = useCallback(async (message: string, images?: AttachedImage[]) => {
@@ -1288,7 +1297,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
         : message,
       timestamp: Date.now(),
     };
-    setMessages((prev) => [...prev, userMsg]);
+    updateMessages((prev) => [...prev, userMsg]);
     optimisticUserMessageKeyRef.current = userMessageKey(userMsg);
     promptRunIdRef.current = promptRunId;
     agentRunningRef.current = true;
@@ -1350,7 +1359,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
         return;
       }
       rpcPromptPendingRef.current = false;
-      setMessages((prev) => {
+      updateMessages((prev) => {
         const optimisticIndex = prev.lastIndexOf(userMsg);
         return optimisticIndex === -1
           ? prev
@@ -1372,7 +1381,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
       setAgentPhase(null);
       dispatch({ type: "end" });
     }
-  }, [isNew, newSessionCwd, newSessionModel, session, ensureNewSession, ensureEventsConnected, promoteNewSession, waitForPromptSettlement, addNotice, cancelEventStreamGrace, closeEvents, composerDraftKey, reconcileAgentState, restoreSubmission]);
+  }, [isNew, newSessionCwd, newSessionModel, session, ensureNewSession, ensureEventsConnected, promoteNewSession, waitForPromptSettlement, addNotice, cancelEventStreamGrace, closeEvents, composerDraftKey, reconcileAgentState, restoreSubmission, updateMessages]);
 
   const executeBash = useCallback(async (command: string, excludeFromContext: boolean) => {
     if (agentRunningRef.current || bashRunningRef.current) return;
