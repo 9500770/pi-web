@@ -80,6 +80,8 @@ interface ExtensionRunnerLike {
 type DialogOptionsLike = {
   signal?: AbortSignal;
   timeout?: number;
+  /** Optional raw request payload (e.g. the bash command / file path being approved). */
+  details?: string;
 };
 
 type WidgetOptionsLike = {

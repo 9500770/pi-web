@@ -1045,9 +1045,11 @@ function ExtensionDialog({
 }) {
   const { t } = useI18n();
   const [value, setValue] = useState(request.method === "editor" ? request.prefill ?? "" : "");
+  const [detailsOpen, setDetailsOpen] = useState(false);
 
   useEffect(() => {
     setValue(request.method === "editor" ? request.prefill ?? "" : "");
+    setDetailsOpen(false);
   }, [request]);
 
   const submitValue = () => {
@@ -1161,6 +1163,51 @@ function ExtensionDialog({
                 fontFamily: "var(--font-mono)",
               }}
             />
+          )}
+
+          {request.details && (
+            <div style={{ marginTop: 10 }}>
+              <button
+                onClick={() => setDetailsOpen((open) => !open)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "5px 10px",
+                  borderRadius: 6,
+                  border: "1px solid var(--border)",
+                  background: "var(--bg-panel)",
+                  color: "var(--text-muted)",
+                  cursor: "pointer",
+                  fontSize: 12,
+                  fontFamily: "var(--font-mono)",
+                }}
+              >
+                <span style={{ display: "inline-block", transform: detailsOpen ? "rotate(90deg)" : "none", transition: "transform 0.12s" }}>▶</span>
+                {detailsOpen ? t("chat.extensionDetailsHide") : t("chat.extensionDetailsShow")}
+              </button>
+              {detailsOpen && (
+                <pre
+                  style={{
+                    margin: "8px 0 0",
+                    padding: 10,
+                    maxHeight: 220,
+                    overflow: "auto",
+                    borderRadius: 7,
+                    border: "1px solid var(--border)",
+                    background: "var(--bg)",
+                    color: "var(--text-muted)",
+                    fontSize: 12,
+                    lineHeight: 1.5,
+                    fontFamily: "var(--font-mono)",
+                    whiteSpace: "pre-wrap",
+                    wordBreak: "break-all",
+                  }}
+                >
+                  {request.details}
+                </pre>
+              )}
+            </div>
           )}
         </div>
 

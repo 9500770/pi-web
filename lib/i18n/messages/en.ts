@@ -174,6 +174,8 @@ export const enLocale: LocalePlugin = {
     "chat.openWrittenFile": "Open {name}",
     "chat.loadEarlier": "Scroll up to load earlier messages ({count} hidden)",
     "chat.extensionRequest": "extension request",
+    "chat.extensionDetailsShow": "Show original request",
+    "chat.extensionDetailsHide": "Hide original request",
     "chat.cancel": "Cancel",
     "chat.confirm": "Confirm",
     "chat.submit": "Submit",

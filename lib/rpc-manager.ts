@@ -1185,28 +1185,28 @@ export class AgentSessionWrapper {
   private createExtensionUiContext(): ExtensionUiContextLike {
     return {
       select: (title, options, opts) => this.requestExtensionUi(
-        { method: "select", title, options, ...(opts?.timeout ? { timeout: opts.timeout } : {}) },
+        { method: "select", title, options, ...(opts?.details ? { details: opts.details } : {}), ...(opts?.timeout ? { timeout: opts.timeout } : {}) },
         undefined,
         (response) => "value" in response ? response.value : undefined,
         opts?.timeout,
         opts?.signal,
       ),
       confirm: (title, message, opts) => this.requestExtensionUi(
-        { method: "confirm", title, message, ...(opts?.timeout ? { timeout: opts.timeout } : {}) },
+        { method: "confirm", title, message, ...(opts?.details ? { details: opts.details } : {}), ...(opts?.timeout ? { timeout: opts.timeout } : {}) },
         false,
         (response) => "confirmed" in response ? response.confirmed : false,
         opts?.timeout,
         opts?.signal,
       ),
       input: (title, placeholder, opts) => this.requestExtensionUi(
-        { method: "input", title, ...(placeholder !== undefined ? { placeholder } : {}), ...(opts?.timeout ? { timeout: opts.timeout } : {}) },
+        { method: "input", title, ...(placeholder !== undefined ? { placeholder } : {}), ...(opts?.details ? { details: opts.details } : {}), ...(opts?.timeout ? { timeout: opts.timeout } : {}) },
         undefined,
         (response) => "value" in response ? response.value : undefined,
         opts?.timeout,
         opts?.signal,
       ),
       editor: (title, prefill, opts) => this.requestExtensionUi(
-        { method: "editor", title, ...(prefill !== undefined ? { prefill } : {}), ...(opts?.timeout ? { timeout: opts.timeout } : {}) },
+        { method: "editor", title, ...(prefill !== undefined ? { prefill } : {}), ...(opts?.details ? { details: opts.details } : {}), ...(opts?.timeout ? { timeout: opts.timeout } : {}) },
         undefined,
         (response) => "value" in response ? response.value : undefined,
         opts?.timeout,

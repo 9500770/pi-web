@@ -116,6 +116,7 @@ export type ExtensionUiRequest =
       method: "select";
       title: string;
       options: string[];
+      details?: string;
       timeout?: number;
       expiresAt?: number;
     }
@@ -125,6 +126,7 @@ export type ExtensionUiRequest =
       method: "confirm";
       title: string;
       message: string;
+      details?: string;
       timeout?: number;
       expiresAt?: number;
     }
@@ -134,6 +136,7 @@ export type ExtensionUiRequest =
       method: "input";
       title: string;
       placeholder?: string;
+      details?: string;
       timeout?: number;
       expiresAt?: number;
     }
@@ -143,6 +146,7 @@ export type ExtensionUiRequest =
       method: "editor";
       title: string;
       prefill?: string;
+      details?: string;
       timeout?: number;
       expiresAt?: number;
     }

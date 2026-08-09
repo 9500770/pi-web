@@ -29,6 +29,49 @@ import {
   type ClientAssistantMessageEvent,
 } from "@/lib/streaming-message";
 
+/**
+ * Format the raw input of a pending tool call into a one-line details string
+ * shown in the expandable section of extension dialogs (e.g. the permission
+ * allow/deny prompt), so the user can review the exact bash command or the
+ * file path being approved without the extension having to send it.
+ */
+function formatToolCallDetails(toolName: string, input: Record<string, unknown> | undefined): string {
+  const command = input?.["command"];
+  if (toolName === "bash" && typeof command === "string") {
+    return `bash: ${command}`;
+  }
+  const path = input?.["path"];
+  if ((toolName === "read" || toolName === "write" || toolName === "edit") && typeof path === "string") {
+    return `${toolName}: ${path}`;
+  }
+  return `${toolName}: ${JSON.stringify(input ?? {})}`;
+}
+
+/**
+ * Find the most recent assistant tool call that has not been resolved by a
+ * toolResult yet — that is the request the current permission dialog is about.
+ * Returns null when there is no pending tool call.
+ */
+function derivePendingToolCallDetails(messages: AgentMessage[]): string | null {
+  const resolvedIds = new Set<string>();
+  for (const msg of messages) {
+    if (msg.role === "toolResult" && msg.toolCallId) resolvedIds.add(msg.toolCallId);
+  }
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const msg = messages[i];
+    if (msg.role !== "assistant") continue;
+    const content = msg.content;
+    if (!Array.isArray(content)) continue;
+    for (let j = content.length - 1; j >= 0; j--) {
+      const block = content[j];
+      if (block?.type !== "toolCall") continue;
+      if (resolvedIds.has(block.toolCallId)) continue;
+      return formatToolCallDetails(block.toolName, block.input);
+    }
+  }
+  return null;
+}
+
 export interface SessionData {
   sessionId: string;
   filePath: string;
@@ -734,7 +777,9 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
       case "confirm":
       case "input":
       case "editor":
-        setExtensionDialog(request);
+        setExtensionDialog(
+          request.details ? request : { ...request, details: derivePendingToolCallDetails(messages) ?? undefined }
+        );
         break;
       case "notify": {
         addNotice({
@@ -777,7 +822,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
         });
         break;
     }
-  }, [addNotice, opts.chatInputRef]);
+  }, [addNotice, opts.chatInputRef, messages]);
 
   const settleUiStage = useCallback(() => {
     const wasRunning = agentRunningRef.current;
