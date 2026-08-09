@@ -980,6 +980,10 @@ function NoticeShelf({ notices, floating = false, align = "left" }: { notices: N
             : notice.type === "success"
               ? "#10b981"
               : "var(--accent)";
+        // Multi-line notices (e.g. extension commands that notify a box panel
+        // like /reasonix-status) need real height + wrapping; single-line ones
+        // stay as compact pills with ellipsis.
+        const multiline = notice.message.includes("\n");
         return (
           <div
             key={notice.id}
@@ -989,8 +993,8 @@ function NoticeShelf({ notices, floating = false, align = "left" }: { notices: N
               alignItems: "center",
               gap: 10,
               minHeight: 60,
-              height: 60,
-              maxHeight: 60,
+              height: multiline ? "auto" : 60,
+              maxHeight: multiline ? 320 : 60,
               marginBottom: index === notices.length - 1 ? 0 : 6,
               overflow: "hidden",
               borderRadius: 14,
@@ -1020,7 +1024,7 @@ function NoticeShelf({ notices, floating = false, align = "left" }: { notices: N
                 flexShrink: 0,
               }}
             />
-            <span style={{ padding: "14px 0", minWidth: 0, maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            <span style={{ padding: "14px 0", minWidth: 0, maxWidth: "100%", overflow: multiline ? "auto" : "hidden", textOverflow: multiline ? undefined : "ellipsis", whiteSpace: multiline ? "pre-wrap" : "nowrap", fontFamily: multiline ? "var(--font-mono)" : undefined, fontSize: multiline ? 12 : undefined, lineHeight: multiline ? 1.4 : undefined }}>
               {notice.message}
             </span>
           </div>
