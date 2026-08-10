@@ -32,11 +32,19 @@ const root = process.cwd();
 
 ## 维护脚本 `pi-permission-fix`
 
-位置：`~/.local/bin/pi-permission-fix`
+源码位置：本仓库 `scripts/pi-permission-fix.sh`。
+
+安装到 PATH（可选，便于直接调用）：
 
 ```bash
-bash pi-permission-fix          # 检查；未修复则钉住版本 + 打补丁
-bash pi-permission-fix --dry-run  # 只报告将做什么，不改动
+cp scripts/pi-permission-fix.sh ~/.local/bin/pi-permission-fix
+```
+
+用法：
+
+```bash
+bash scripts/pi-permission-fix          # 检查；未修复则钉住版本 + 打补丁
+bash scripts/pi-permission-fix --dry-run  # 只报告将做什么，不改动
 ```
 
 逻辑：
