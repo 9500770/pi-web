@@ -1169,11 +1169,13 @@ function ExtensionDialog({
             <div style={{ marginTop: 10 }}>
               <button
                 onClick={() => setDetailsOpen((open) => !open)}
+                title={request.details}
                 style={{
                   display: "flex",
                   alignItems: "center",
                   gap: 6,
-                  padding: "5px 10px",
+                  width: "100%",
+                  padding: "6px 10px",
                   borderRadius: 6,
                   border: "1px solid var(--border)",
                   background: "var(--bg-panel)",
@@ -1181,10 +1183,13 @@ function ExtensionDialog({
                   cursor: "pointer",
                   fontSize: 12,
                   fontFamily: "var(--font-mono)",
+                  textAlign: "left",
                 }}
               >
-                <span style={{ display: "inline-block", transform: detailsOpen ? "rotate(90deg)" : "none", transition: "transform 0.12s" }}>▶</span>
-                {detailsOpen ? t("chat.extensionDetailsHide") : t("chat.extensionDetailsShow")}
+                <span style={{ display: "inline-block", transform: detailsOpen ? "rotate(90deg)" : "none", transition: "transform 0.12s", flexShrink: 0 }}>▶</span>
+                <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>
+                  {request.details}
+                </span>
               </button>
               {detailsOpen && (
                 <pre

@@ -1,0 +1,190 @@
+{
+  "$schema": "./schemas/permission-mode.schema.json",
+  "defaultMode": "default",
+  "cycleOrder": [
+    "default",
+    "plan",
+    "build",
+    "yolo"
+  ],
+  "modes": {
+    "default": {
+      "label": "Default",
+      "color": "muted",
+      "sandbox": {
+        "enabled": false,
+        "writable": true
+      },
+      "permission": {
+        "path": {
+          "*": "allow"
+        },
+        "external_directory": "ask",
+        "read": "allow",
+        "grep": "allow",
+        "find": "allow",
+        "ls": "allow",
+        "write": "ask",
+        "edit": "ask",
+        "bash": {
+          "*": "ask",
+          "git status *": "allow",
+          "git log *": "allow",
+          "git diff *": "allow",
+          "git branch *": "allow",
+          "git remote *": "allow",
+          "ls *": "allow",
+          "cat *": "allow",
+          "head *": "allow",
+          "tail *": "allow",
+          "less *": "allow",
+          "more *": "allow",
+          "grep *": "allow",
+          "rg *": "allow",
+          "find *": "allow",
+          "tree *": "allow",
+          "pwd": "allow",
+          "date": "allow",
+          "whoami": "allow",
+          "id": "allow",
+          "printf *": "allow",
+          "echo *": "allow",
+          "npm test *": "allow",
+          "npm run *": "allow",
+          "npm install *": "allow",
+          "mvn *": "allow",
+          "make *": "allow",
+          "gradle *": "allow"
+        },
+        "web_search": "ask",
+        "tool": "ask",
+        "skill": "ask"
+      }
+    },
+    "plan": {
+      "label": "Plan Mode",
+      "color": "mdLink",
+      "systemPrompt": "@plan",
+      "sandbox": {
+        "enabled": true,
+        "writable": false,
+        "allowWrite": [
+          ".",
+          "/tmp"
+        ],
+        "denyWrite": [],
+        "denyRead": [
+          "~/.ssh",
+          "~/.aws",
+          "~/.gnupg"
+        ]
+      },
+      "permission": {
+        "path": {
+          "*": "allow"
+        },
+        "external_directory": "ask",
+        "read": "allow",
+        "grep": "allow",
+        "find": "allow",
+        "ls": "allow",
+        "write": {
+          "*": "deny",
+          "*.md": "allow",
+          "*.markdown": "allow"
+        },
+        "edit": {
+          "*": "deny",
+          "*.md": "allow",
+          "*.markdown": "allow"
+        },
+        "bash": {
+          "*": "ask"
+        },
+        "web_search": "allow",
+        "tool": "ask",
+        "skill": "ask"
+      }
+    },
+    "build": {
+      "label": "Build",
+      "color": "accent",
+      "sandbox": {
+        "enabled": false,
+        "writable": true
+      },
+      "permission": {
+        "path": {
+          "*": "allow"
+        },
+        "external_directory": "ask",
+        "read": "allow",
+        "grep": "allow",
+        "find": "allow",
+        "ls": "allow",
+        "write": "allow",
+        "edit": "allow",
+        "bash": {
+          "*": "ask",
+          "git status *": "allow",
+          "git log *": "allow",
+          "git diff *": "allow",
+          "git branch *": "allow",
+          "git remote *": "allow",
+          "ls *": "allow",
+          "cat *": "allow",
+          "head *": "allow",
+          "tail *": "allow",
+          "less *": "allow",
+          "more *": "allow",
+          "grep *": "allow",
+          "rg *": "allow",
+          "find *": "allow",
+          "tree *": "allow",
+          "pwd": "allow",
+          "date": "allow",
+          "whoami": "allow",
+          "id": "allow",
+          "printf *": "allow",
+          "echo *": "allow",
+          "npm test *": "allow",
+          "npm run *": "allow",
+          "npm install *": "allow",
+          "mvn *": "allow",
+          "make *": "allow",
+          "gradle *": "allow"
+        },
+        "web_search": "allow",
+        "tool": "ask",
+        "skill": "ask"
+      }
+    },
+    "yolo": {
+      "label": "YOLO",
+      "color": "error",
+      "sandbox": {
+        "enabled": false,
+        "writable": true
+      },
+      "bypassProtectedPaths": true,
+      "permission": {
+        "path": {
+          "*": "allow"
+        },
+        "external_directory": "allow",
+        "read": "allow",
+        "grep": "allow",
+        "find": "allow",
+        "ls": "allow",
+        "write": "allow",
+        "edit": "allow",
+        "bash": {
+          "*": "allow"
+        },
+        "web_search": "allow",
+        "tool": "allow",
+        "skill": "allow"
+      }
+    }
+  }
+}

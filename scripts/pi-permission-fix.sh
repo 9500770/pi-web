@@ -5,6 +5,8 @@
 #   - 未安装          → 跳过，无需处理
 #   - 已修复          → 报告 OK
 #   - 未修复          → 钉住当前版本（防 pi update 覆盖）并打补丁（备份后修改）
+# 同时：把本脚本同目录下的 permission-mode.json 同步到
+#       ~/.pi/agent/permission-mode/permission-mode.json（项目内版本为源，备份后覆盖）。
 #
 # 背景：该插件用 process.cwd() 作为“项目根”。CLI 在项目目录里启动时碰巧
 # 正确；但 pi-web 从安装目录启动服务进程，process.cwd() 恒为安装目录，
@@ -15,17 +17,40 @@
 # 环境变量覆盖（测试用）:
 #   PM_PKG_DIR     插件安装目录（默认 ~/.pi/agent/npm/node_modules/pi-permission-modes）
 #   SETTINGS_FILE  全局 settings.json（默认 ~/.pi/agent/settings.json）
+#   PM_CONFIG_DIR  permission-mode.json 目标目录（默认 ~/.pi/agent/permission-mode）
 #
 set -euo pipefail
 
 DRY_RUN=0
 if [ "${1:-}" = "--dry-run" ]; then DRY_RUN=1; fi
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PM_PKG_DIR="${PM_PKG_DIR:-$HOME/.pi/agent/npm/node_modules/pi-permission-modes}"
 SETTINGS_FILE="${SETTINGS_FILE:-$HOME/.pi/agent/settings.json}"
+PM_CONFIG_DIR="${PM_CONFIG_DIR:-$HOME/.pi/agent/permission-mode}"
+CONFIG_SOURCE="${CONFIG_SOURCE:-$SCRIPT_DIR/permission-mode.json}"
+CONFIG_DEST="$PM_CONFIG_DIR/permission-mode.json"
 PREFIX="npm:pi-permission-modes"
 
 log() { echo "[pi-permission-fix] $*"; }
+
+# ---------- 0. 同步 permission-mode.json（项目内为源，备份后覆盖） ----------
+sync_permission_config() {
+  if [ ! -f "$CONFIG_SOURCE" ]; then
+    log "WARN: 未找到项目配置 $CONFIG_SOURCE，跳过配置同步。"
+    return 0
+  fi
+  if [ "$DRY_RUN" = "1" ]; then
+    log "[dry-run] 将同步配置: $CONFIG_SOURCE -> $CONFIG_DEST"
+    return 0
+  fi
+  mkdir -p "$PM_CONFIG_DIR"
+  if [ -f "$CONFIG_DEST" ]; then
+    cp "$CONFIG_DEST" "$CONFIG_DEST.bak-$(date +%Y%m%d%H%M%S)"
+  fi
+  cp "$CONFIG_SOURCE" "$CONFIG_DEST"
+  log "OK: 配置已同步 -> $CONFIG_DEST"
+}
 
 # ---------- 1. 未安装则跳过 ----------
 if [ ! -d "$PM_PKG_DIR" ]; then
@@ -38,6 +63,9 @@ if [ ! -f "$INDEX" ]; then
   log "未找到 $INDEX（包结构异常，跳过）"
   exit 1
 fi
+
+# 配置同步（插件存在时每次执行）
+sync_permission_config
 
 # ---------- 2. 检查是否已修复 ----------
 if grep -q "root = ctx.cwd" "$INDEX" 2>/dev/null; then

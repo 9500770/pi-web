@@ -32,12 +32,13 @@ const root = process.cwd();
 
 ## 维护脚本 `pi-permission-fix`
 
-源码位置：本仓库 `scripts/pi-permission-fix.sh`。
+源码位置：本仓库 `scripts/pi-permission-fix.sh`，配套配置 `scripts/permission-mode.json`。
 
 安装到 PATH（可选，便于直接调用）：
 
 ```bash
 cp scripts/pi-permission-fix.sh ~/.local/bin/pi-permission-fix
+cp scripts/permission-mode.json ~/.local/bin/permission-mode.json
 ```
 
 用法：
@@ -46,6 +47,8 @@ cp scripts/pi-permission-fix.sh ~/.local/bin/pi-permission-fix
 bash scripts/pi-permission-fix          # 检查；未修复则钉住版本 + 打补丁
 bash scripts/pi-permission-fix --dry-run  # 只报告将做什么，不改动
 ```
+
+每次运行（插件存在时）还会把项目内 `scripts/permission-mode.json` 同步到 `~/.pi/agent/permission-mode/permission-mode.json`（同步前自动备份），让权限配置随仓库版本管理。
 
 逻辑：
 
@@ -77,3 +80,22 @@ bash scripts/pi-permission-fix --dry-run  # 只报告将做什么，不改动
 上游（wynainfo/pi-permission-modes）合并修复后：
 1. `pi install npm:pi-permission-modes`（解除锁定）或 `pi install npm:pi-permission-modes@<新版>`
 2. 脚本再次运行会报告"已修复"（源码自带修复），本地补丁不再需要。
+
+## 无沙箱策略配置（default / build）
+
+仓库内 `scripts/permission-mode.json` 的 default / build 模式**关闭了 OS 沙箱**（`sandbox.enabled: false`），改由**政策层**控制自动审批：
+
+- **项目内自动、项目外审批**：`path: { "*": "allow" }` + `external_directory: "ask"`。文件工具与 bash 命令引用的路径都会过 `isOutside(root, path)` 判定（静态 AST 分析），项目内自动放行，项目外才弹窗；
+- **bash 常用命令自动**：模式匹配白名单（git/ls/cat/grep/rg/find/pwd/echo 及 npm test/run/install、mvn、make、gradle 等 28 条），其余 `*` 为 `ask`；
+- **build 模式**：read/write/edit 项目内自动（`write`/`edit` 为 `allow`，`external_directory: ask` 兜底），bash 同 default 白名单；
+- **plan** 保持只读沙箱（仅 .md 可写），**yolo** 保持全放行。
+
+选择无沙箱的权衡：
+
+| 失去的 | 说明 |
+|---|---|
+| OS 级 `denyRead`（~/.ssh 等） | 只靠政策层 + `isProtectedWrite`（tool_call 层）拦截 |
+| 网络过滤 | 状态栏显示 "Network: open"，域名 allowlist 失效 |
+| 静态分析漏判的兜底 | 动态路径（`$(...)`、变量拼接）可能逃过 AST 分析，且无 OS 兜底 |
+
+政策层（allow/ask/deny）与 OS 沙箱解耦（`bash-enforce.ts`）：无沙箱时 `allow` 直接执行、`ask` 弹窗（提示将无沙箱运行）、`deny` 拦截，判断逻辑与沙箱无关。
