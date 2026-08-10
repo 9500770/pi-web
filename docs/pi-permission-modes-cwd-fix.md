@@ -81,31 +81,29 @@ bash scripts/pi-permission-fix --dry-run  # 只报告将做什么，不改动
 1. `pi install npm:pi-permission-modes`（解除锁定）或 `pi install npm:pi-permission-modes@<新版>`
 2. 脚本再次运行会报告"已修复"（源码自带修复），本地补丁不再需要。
 
-## 无沙箱策略配置（default / build）
+## 策略配置（default / build）
 
-仓库内 `scripts/permission-mode.json` 的 default / build 模式**关闭了 OS 沙箱**（`sandbox.enabled: false`），改由**政策层**控制自动审批：
+仓库内 `scripts/permission-mode.json` 的 default / build 模式使用**宽松沙箱**（`sandbox.enabled: true` + `allowWrite: [".", "/tmp"]` + `denyRead: [~/.ssh, ~/.aws, ~/.gnupg]`）+ **政策层**控制自动审批：
+
+> ⚠️ 为什么不开沙箱：`index.ts` 的 tool_call 处理器在 `!m.sandbox.enabled` 时走 **fast path**——bash 只做命令字符串模式匹配（白名单/`*`），**跳过 AST 路径分析**，因此项目外路径的 bash（如 `cat ~/.ssh/config`）不会触发审批。文件工具（read/write/edit/grep/find/ls）的 `isOutside` 判断与沙箱无关，始终生效；但 bash 的路径判断**只在沙箱启用时**存在。所以保持宽松沙箱（项目内工作无感知）以换取 bash 的项目外审批能力。
 
 **default**（只读友好，其余审批）：
 
 - 项目内读取（read/grep/find/ls）自动放行；
 - 项目内**只读 bash**（git status/log/diff/branch/remote、ls/cat/head/tail/less/more/grep/rg/find/tree、pwd/date/whoami/id/printf/echo，共 21 条）自动放行；
 - 项目内 write/edit 与**写型 bash**（rm/mv/touch/sed/npm install 等，`"*": "ask"` 兜底）需审批；
-- 项目外所有（`external_directory: "ask"`）需审批。
+- 项目外所有（`external_directory: "ask"` + bash AST `outsideReason`）需审批。
 
 **build**（项目内全放行）：
 
 - 项目内 read/write/edit 自动放行；
 - 项目内 bash 全放行（`"*": "allow"`）；
-- 项目外（`external_directory: "ask"`）需审批。
+- 项目外（`external_directory: "ask"` + bash AST）需审批。
 
 **plan** 保持只读沙箱（仅 .md 可写），**yolo** 保持全放行。
 
-选择无沙箱的权衡：
-
-| 失去的 | 说明 |
+| 失去的（若关沙箱） | 说明 |
 |---|---|
-| OS 级 `denyRead`（~/.ssh 等） | 只靠政策层 + `isProtectedWrite`（tool_call 层）拦截 |
+| bash 的 AST 路径判断 | fast path 跳过 `analyzeBash`，只按命令模式匹配，项目外路径不弹窗 |
+| OS 级 `denyRead`（~/.ssh 等） | 只靠政策层 + `isProtectedWrite` 拦截 |
 | 网络过滤 | 状态栏显示 "Network: open"，域名 allowlist 失效 |
-| 静态分析漏判的兜底 | 动态路径（`$(...)`、变量拼接）可能逃过 AST 分析，且无 OS 兜底 |
-
-政策层（allow/ask/deny）与 OS 沙箱解耦（`bash-enforce.ts`）：无沙箱时 `allow` 直接执行、`ask` 弹窗（提示将无沙箱运行）、`deny` 拦截，判断逻辑与沙箱无关。

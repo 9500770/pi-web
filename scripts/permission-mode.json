@@ -12,8 +12,18 @@
       "label": "Default",
       "color": "muted",
       "sandbox": {
-        "enabled": false,
-        "writable": true
+        "enabled": true,
+        "writable": true,
+        "allowWrite": [
+          ".",
+          "/tmp"
+        ],
+        "denyWrite": [],
+        "denyRead": [
+          "~/.ssh",
+          "~/.aws",
+          "~/.gnupg"
+        ]
       },
       "permission": {
         "path": {
@@ -104,8 +114,18 @@
       "label": "Build",
       "color": "accent",
       "sandbox": {
-        "enabled": false,
-        "writable": true
+        "enabled": true,
+        "writable": true,
+        "allowWrite": [
+          ".",
+          "/tmp"
+        ],
+        "denyWrite": [],
+        "denyRead": [
+          "~/.ssh",
+          "~/.aws",
+          "~/.gnupg"
+        ]
       },
       "permission": {
         "path": {
