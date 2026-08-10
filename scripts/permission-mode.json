@@ -48,13 +48,7 @@
           "whoami": "allow",
           "id": "allow",
           "printf *": "allow",
-          "echo *": "allow",
-          "npm test *": "allow",
-          "npm run *": "allow",
-          "npm install *": "allow",
-          "mvn *": "allow",
-          "make *": "allow",
-          "gradle *": "allow"
+          "echo *": "allow"
         },
         "web_search": "ask",
         "tool": "ask",
@@ -125,38 +119,11 @@
         "write": "allow",
         "edit": "allow",
         "bash": {
-          "*": "ask",
-          "git status *": "allow",
-          "git log *": "allow",
-          "git diff *": "allow",
-          "git branch *": "allow",
-          "git remote *": "allow",
-          "ls *": "allow",
-          "cat *": "allow",
-          "head *": "allow",
-          "tail *": "allow",
-          "less *": "allow",
-          "more *": "allow",
-          "grep *": "allow",
-          "rg *": "allow",
-          "find *": "allow",
-          "tree *": "allow",
-          "pwd": "allow",
-          "date": "allow",
-          "whoami": "allow",
-          "id": "allow",
-          "printf *": "allow",
-          "echo *": "allow",
-          "npm test *": "allow",
-          "npm run *": "allow",
-          "npm install *": "allow",
-          "mvn *": "allow",
-          "make *": "allow",
-          "gradle *": "allow"
+          "*": "allow"
         },
         "web_search": "allow",
-        "tool": "ask",
-        "skill": "ask"
+        "tool": "allow",
+        "skill": "allow"
       }
     },
     "yolo": {

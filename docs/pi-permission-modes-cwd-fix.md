@@ -85,10 +85,20 @@ bash scripts/pi-permission-fix --dry-run  # 只报告将做什么，不改动
 
 仓库内 `scripts/permission-mode.json` 的 default / build 模式**关闭了 OS 沙箱**（`sandbox.enabled: false`），改由**政策层**控制自动审批：
 
-- **项目内自动、项目外审批**：`path: { "*": "allow" }` + `external_directory: "ask"`。文件工具与 bash 命令引用的路径都会过 `isOutside(root, path)` 判定（静态 AST 分析），项目内自动放行，项目外才弹窗；
-- **bash 常用命令自动**：模式匹配白名单（git/ls/cat/grep/rg/find/pwd/echo 及 npm test/run/install、mvn、make、gradle 等 28 条），其余 `*` 为 `ask`；
-- **build 模式**：read/write/edit 项目内自动（`write`/`edit` 为 `allow`，`external_directory: ask` 兜底），bash 同 default 白名单；
-- **plan** 保持只读沙箱（仅 .md 可写），**yolo** 保持全放行。
+**default**（只读友好，其余审批）：
+
+- 项目内读取（read/grep/find/ls）自动放行；
+- 项目内**只读 bash**（git status/log/diff/branch/remote、ls/cat/head/tail/less/more/grep/rg/find/tree、pwd/date/whoami/id/printf/echo，共 21 条）自动放行；
+- 项目内 write/edit 与**写型 bash**（rm/mv/touch/sed/npm install 等，`"*": "ask"` 兜底）需审批；
+- 项目外所有（`external_directory: "ask"`）需审批。
+
+**build**（项目内全放行）：
+
+- 项目内 read/write/edit 自动放行；
+- 项目内 bash 全放行（`"*": "allow"`）；
+- 项目外（`external_directory: "ask"`）需审批。
+
+**plan** 保持只读沙箱（仅 .md 可写），**yolo** 保持全放行。
 
 选择无沙箱的权衡：
 
