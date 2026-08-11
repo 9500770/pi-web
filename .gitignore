@@ -43,3 +43,6 @@ next-env.d.ts
 
 # packed npm tarballs
 *.tgz
+
+# project-local pi config (perm-mode writes here)
+.pi/
