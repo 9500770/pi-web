@@ -939,6 +939,7 @@ export function ChatWindow({ session, sessionRunning, newSessionCwd, newSessionD
           <ExtensionDialog
             request={extensionDialog}
             onRespond={respondToExtensionUi}
+            isMobile={isMobile}
           />
         )}
         {chatInputElement}
@@ -1038,9 +1039,11 @@ type ExtensionDialogRequest = Extract<ExtensionUiRequest, { method: "select" | "
 function ExtensionDialog({
   request,
   onRespond,
+  isMobile = false,
 }: {
   request: ExtensionDialogRequest;
   onRespond: (request: ExtensionDialogRequest, response: { value: string } | { confirmed: boolean } | { cancelled: true }) => void;
+  isMobile?: boolean;
 }) {
   const { t } = useI18n();
   const [value, setValue] = useState(request.method === "editor" ? request.prefill ?? "" : "");
@@ -1063,7 +1066,7 @@ function ExtensionDialog({
     <div
       style={{
         padding: `0 ${CHAT_COLUMN_PADDING}px`,
-        paddingRight: CHAT_INPUT_RIGHT_PADDING,
+        paddingRight: isMobile ? CHAT_COLUMN_PADDING : CHAT_INPUT_RIGHT_PADDING,
       }}
     >
       <div style={{ maxWidth: 820, margin: "0 auto" }}>
