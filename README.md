@@ -85,6 +85,7 @@ npx @agegr/pi-web@latest
 - **See session state clearly**: context usage, cost, compaction state, and system prompt details are visible from the top bar.
 - **Configure less from the terminal**: manage models, login/API keys, model tests, and skill switches from the web UI.
 - **Run extension commands**: slash commands registered by pi extensions (e.g. `/reasonix-status`, `/perm`) execute right in the chat input, and multi-line command output renders fully in the notice shelf instead of being truncated.
+- **Review before approving**: permission allow/deny prompts dock above the input as a non-blocking card — the chat history stays visible and scrollable, and the raw request (bash command / file path) is shown on a single truncated line, expandable to the full payload.
 - **Use the interface in your language**: switch between the supported UI languages from the top bar.
 
 ## Notes

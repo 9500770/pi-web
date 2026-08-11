@@ -631,13 +631,6 @@ export function ChatWindow({ session, sessionRunning, newSessionCwd, newSessionD
         </div>
       )}
 
-      {extensionDialog && (
-        <ExtensionDialog
-          request={extensionDialog}
-          onRespond={respondToExtensionUi}
-        />
-      )}
-
       {extensionCustomUi && (
         <ExtensionCustomPanel
           request={extensionCustomUi}
@@ -942,6 +935,12 @@ export function ChatWindow({ session, sessionRunning, newSessionCwd, newSessionD
             <ExtensionWidgets widgets={aboveEditorWidgets} />
           </div>
         </div>
+        {extensionDialog && (
+          <ExtensionDialog
+            request={extensionDialog}
+            onRespond={respondToExtensionUi}
+          />
+        )}
         {chatInputElement}
         <div
           style={{
@@ -1063,28 +1062,24 @@ function ExtensionDialog({
   return (
     <div
       style={{
-        position: "absolute",
-        inset: 0,
-        zIndex: 90,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: 20,
-        background: "rgba(0,0,0,0.18)",
+        padding: `0 ${CHAT_COLUMN_PADDING}px`,
+        paddingRight: CHAT_INPUT_RIGHT_PADDING,
       }}
     >
-      <div
-        role="dialog"
-        aria-modal="true"
-        style={{
-          width: "min(560px, 100%)",
-          border: "1px solid var(--border)",
-          borderRadius: 8,
-          background: "var(--bg)",
-          boxShadow: "0 20px 60px rgba(0,0,0,0.28)",
-          overflow: "hidden",
-        }}
-      >
+      <div style={{ maxWidth: 820, margin: "0 auto" }}>
+        <div
+          role="dialog"
+          aria-modal="false"
+          style={{
+            width: "100%",
+            border: "1px solid var(--border)",
+            borderRadius: 10,
+            background: "var(--bg-panel)",
+            boxShadow: "0 8px 30px rgba(0,0,0,0.18)",
+            overflow: "hidden",
+            margin: "8px 0",
+          }}
+        >
         <div style={{ padding: "12px 14px", borderBottom: "1px solid var(--border)" }}>
           <div style={{ color: "var(--text)", fontSize: 14, fontWeight: 650 }}>{request.title}</div>
           <div style={{ marginTop: 3, color: "var(--text-dim)", fontSize: 11, fontFamily: "var(--font-mono)" }}>{t("chat.extensionRequest")}</div>
@@ -1259,6 +1254,7 @@ function ExtensionDialog({
                {t("chat.submit")}
             </button>
           ) : null}
+        </div>
         </div>
       </div>
     </div>
