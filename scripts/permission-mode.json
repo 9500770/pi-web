@@ -24,7 +24,14 @@
           "~/.ssh",
           "~/.aws",
           "~/.gnupg"
-        ]
+        ],
+        "network": {
+          "allowedDomains": [],
+          "deniedDomains": [
+            "*.example.com",
+            "192.168.1.1"
+          ]
+        }
       },
       "permission": {
         "path": {
@@ -128,7 +135,14 @@
           "~/.ssh",
           "~/.aws",
           "~/.gnupg"
-        ]
+        ],
+        "network": {
+          "allowedDomains": [],
+          "deniedDomains": [
+            "*.example.com",
+            "192.168.1.1"
+          ]
+        }
       },
       "permission": {
         "path": {
