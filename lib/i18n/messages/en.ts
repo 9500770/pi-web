@@ -180,6 +180,7 @@ export const enLocale: LocalePlugin = {
     "chat.permPath": "Path",
     "chat.permCwd": "working dir",
     "chat.permMatched": "matched",
+    "chat.collapse": "collapse",
     "chat.cancel": "Cancel",
     "chat.confirm": "Confirm",
     "chat.submit": "Submit",

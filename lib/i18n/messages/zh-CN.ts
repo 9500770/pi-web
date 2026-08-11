@@ -180,6 +180,7 @@ export const zhCNLocale: LocalePlugin = {
     "chat.permPath": "路径",
     "chat.permCwd": "工作目录",
     "chat.permMatched": "匹配规则",
+    "chat.collapse": "收起",
     "chat.cancel": "取消",
     "chat.confirm": "确认",
     "chat.submit": "提交",

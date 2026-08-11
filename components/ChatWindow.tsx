@@ -1185,38 +1185,61 @@ function parsePermissionPrompt(title: string): ParsedPermissionPrompt | null {
 
 /** 长文本：默认一行截断，点击展开完整内容。 */
 function TruncatedDetails({ text }: { text: string }) {
+  const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const needsExpand = text.length > 120 || text.includes("\n");
   if (!needsExpand) {
     return <div style={{ color: "var(--text-muted)", fontSize: 12, lineHeight: 1.5, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{text}</div>;
   }
+  if (open) {
+    // 展开态：只显示多行控件（收起箭头 + 完整文本，不再重复一行截断）
+    return (
+      <div>
+        <button
+          onClick={() => setOpen(false)}
+          title={t("chat.collapse")}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            padding: "3px 6px",
+            border: "none",
+            background: "transparent",
+            color: "var(--text-dim)",
+            cursor: "pointer",
+            fontSize: 11,
+            fontFamily: "var(--font-mono)",
+          }}
+        >
+          <span style={{ display: "inline-block", transform: "rotate(90deg)", flexShrink: 0 }}>▶</span>
+          {t("chat.collapse")}
+        </button>
+        <pre style={{ margin: "2px 0 0", padding: 10, maxHeight: 260, overflow: "auto", borderRadius: 7, border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text-muted)", fontSize: 12, lineHeight: 1.5, fontFamily: "var(--font-mono)", whiteSpace: "pre-wrap", wordBreak: "break-all" }}>{text}</pre>
+      </div>
+    );
+  }
   return (
-    <div>
-      <button
-        onClick={() => setOpen((o) => !o)}
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 6,
-          width: "100%",
-          padding: "5px 8px",
-          borderRadius: 6,
-          border: "1px solid var(--border)",
-          background: "var(--bg-panel)",
-          color: "var(--text-muted)",
-          cursor: "pointer",
-          fontSize: 12,
-          fontFamily: "var(--font-mono)",
-          textAlign: "left",
-        }}
-      >
-        <span style={{ display: "inline-block", transform: open ? "rotate(90deg)" : "none", transition: "transform 0.12s", flexShrink: 0 }}>▶</span>
-        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>{text.replace(/\n/g, " ")}</span>
-      </button>
-      {open && (
-        <pre style={{ margin: "6px 0 0", padding: 10, maxHeight: 220, overflow: "auto", borderRadius: 7, border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text-muted)", fontSize: 12, lineHeight: 1.5, fontFamily: "var(--font-mono)", whiteSpace: "pre-wrap", wordBreak: "break-all" }}>{text}</pre>
-      )}
-    </div>
+    <button
+      onClick={() => setOpen(true)}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 6,
+        width: "100%",
+        padding: "5px 8px",
+        borderRadius: 6,
+        border: "1px solid var(--border)",
+        background: "var(--bg-panel)",
+        color: "var(--text-muted)",
+        cursor: "pointer",
+        fontSize: 12,
+        fontFamily: "var(--font-mono)",
+        textAlign: "left",
+      }}
+    >
+      <span style={{ flexShrink: 0 }}>▶</span>
+      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>{text.replace(/\n/g, " ")}</span>
+    </button>
   );
 }
 
