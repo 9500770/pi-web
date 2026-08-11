@@ -20,7 +20,7 @@
 
 import { readFileSync, writeFileSync, mkdirSync, existsSync, unlinkSync, symlinkSync, readlinkSync } from "node:fs";
 import { join, dirname, basename } from "node:path";
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { getAgentDir, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 const STATUS_KEY = "perm-mode";
 const EXT_NAME = "pi-permission-system";
@@ -102,6 +102,7 @@ const MODE_TEMPLATES: Record<string, object> = {
 };
 
 const configDir = (cwd: string) => join(cwd, ".pi", "extensions", EXT_NAME);
+const globalConfigPath = () => join(getAgentDir(), "extensions", EXT_NAME, "config.json");
 const configPath = (cwd: string) => join(configDir(cwd), "config.json");
 const templatePath = (cwd: string, mode: string) => join(configDir(cwd), `config_${mode}.json`);
 
@@ -128,14 +129,35 @@ function listModes(cwd: string): string[] {
   return Array.from(names).sort();
 }
 
-/** 当前模式：读 config.json 软链接目标名；无软链接（无自定义配置）→ default。 */
+/** 当前模式：项目软链接名 → 项目普通文件推断 → 全局 yolo → default。 */
 function detectMode(cwd: string): string {
+  // 1. 项目 config.json 是软链接 → 模式名就是链接目标
   try {
     const target = readlinkSync(configPath(cwd));
     const m = /^config_(.+)\.json$/.exec(basename(target));
     if (m) return m[1];
   } catch {
-    // 不是软链接 / 不存在 → default
+    // 不是软链接，继续
+  }
+  // 2. 项目 config.json 是普通文件（旧版/手动）→ 按 write 策略推断
+  try {
+    const write = JSON.parse(readFileSync(configPath(cwd), "utf-8")).permission?.write;
+    if (typeof write === "string") {
+      if (write === "allow") return "build";
+      if (write === "ask") return "ask";
+    } else if (write && typeof write === "object") {
+      if (write["*"] === "allow") return "build";
+      if (write["*"] === "ask") return "ask";
+    }
+  } catch {
+    // 无项目配置，继续
+  }
+  // 3. 无项目自定义配置 → 读全局 yoloMode
+  try {
+    const g = JSON.parse(readFileSync(globalConfigPath(), "utf-8"));
+    if (g.yoloMode === true) return "yolo";
+  } catch {
+    // 全局也没有
   }
   return "default";
 }
