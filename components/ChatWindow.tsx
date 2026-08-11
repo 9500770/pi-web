@@ -1036,12 +1036,29 @@ function NoticeShelf({ notices, floating = false, align = "left" }: { notices: N
 
 type ExtensionDialogRequest = Extract<ExtensionUiRequest, { method: "select" | "confirm" | "input" | "editor" }>;
 
-/** 解析 pi-permission-system 的长文本审批消息为结构化块。 */
+/** 解析 pi-permission-system 的长文本审批消息为结构化块。未命中已知格式返回 null（走兜底展示）。 */
 interface ParsedPermissionPrompt {
   heading: string;
+  type: string; // bash / read / write / edit / network / skill / mcp / tool
+  reason: string; // ask / external_directory / path / deny / ""
   command?: string;
-  paths?: { cwd?: string; list: string[] };
+  path?: string;
+  paths?: string[];
+  cwd?: string;
+  pattern?: string;
   rest?: string;
+}
+
+const unquoteStr = (s: string) => s.replace(/\\'/g, "'");
+const stripAskSuffix = (s: string) => s.replace(/\.?\s*Allow this[^.]*\??$/i, "").trim();
+
+function toolDisplayType(name: string): string {
+  if (name === "bash") return "bash";
+  if (name === "web_search" || name === "request_network_access" || name === "network") return "network";
+  if (name === "skill") return "skill";
+  if (name === "mcp") return "mcp";
+  if (["read", "write", "edit", "grep", "find", "ls"].includes(name)) return name;
+  return name || "tool";
 }
 
 function parsePermissionPrompt(title: string): ParsedPermissionPrompt | null {
@@ -1049,51 +1066,158 @@ function parsePermissionPrompt(title: string): ParsedPermissionPrompt | null {
   const heading = lines[0]?.trim() ?? "";
   const body = lines.slice(1).join("\n").trim();
   if (!body) return null;
-  const out: ParsedPermissionPrompt = { heading };
+  const out: ParsedPermissionPrompt = { heading, type: "tool", reason: "" };
 
-  // bash 外部目录: "... requested bash command 'CMD' which references path(s)
-  // outside working directory 'CWD': P1, P2. Allow this external directory access?"
-  const bashRe = /requested bash command '((?:[^'\\]|\\.)*)'([\s\S]*)$/;
-  const m = bashRe.exec(body);
-  if (m) {
-    out.command = m[1].replace(/\\'/g, "'");
-    let remainder = m[2] ?? "";
-    const pathsRe = /references path\(s\) outside working directory '((?:[^'\\]|\\.)*)':\s*([^]*?)(?:\.\s*Allow this external directory access\??)?\.?\s*$/;
-    const p = pathsRe.exec(remainder);
+  // 1. bash 外部目录: "... requested bash command 'CMD' ... references path(s) outside working directory 'CWD': P1, P2. Allow this external directory access?"
+  const bashExt = /requested bash command '((?:[^'\\]|\\.)*)'([\s\S]*)$/;
+  const be = bashExt.exec(body);
+  if (be) {
+    out.type = "bash";
+    out.command = unquoteStr(be[1]);
+    let tail = be[2] ?? "";
+    const pathsRe = /references path\(s\) outside working directory '((?:[^'\\]|\\.)*)':\s*([\s\S]*?)(?:\.\s*Allow this external directory access\??)?\.?\s*$/;
+    const p = pathsRe.exec(tail);
     if (p) {
-      out.paths = {
-        cwd: p[1].replace(/\\'/g, "'"),
-        list: p[2].split(",").map((s) => s.trim()).filter(Boolean),
-      };
-      remainder = remainder.slice(0, remainder.length - p[0].length);
+      out.reason = "external_directory";
+      out.cwd = unquoteStr(p[1]);
+      out.paths = p[2].split(",").map((s) => s.trim()).filter(Boolean);
+      tail = tail.slice(0, tail.length - p[0].length);
+    } else {
+      out.reason = "ask";
     }
-    remainder = remainder.replace(/^which\b/i, "").replace(/\.\s*Allow this external directory access\??$/i, "").trim();
-    if (remainder) out.rest = remainder;
-    return out;
-  }
-
-  // 文件工具外部目录: "... requested tool 'X' for path 'Y' outside working directory 'CWD'..."
-  const toolRe = /requested tool '((?:[^'\\]|\\.)*)' for path '((?:[^'\\]|\\.)*)' outside working directory '((?:[^'\\]|\\.)*)'/;
-  const tm = toolRe.exec(body);
-  if (tm) {
-    out.command = `${tm[1]}: ${tm[2]}`;
-    out.paths = { cwd: tm[3], list: [tm[2]] };
-    const rest = body.replace(toolRe, "").replace(/\.\s*Allow this.*\??$/i, "").trim();
+    tail = tail.replace(/^which\b/i, "").replace(/\.\s*Allow this external directory access\??$/i, "").trim();
+    const rest = stripAskSuffix(tail);
     if (rest) out.rest = rest;
     return out;
   }
 
-  // 普通 bash ask: "... requested bash command 'CMD'. Allow this command?"
-  const plainBashRe = /requested bash command '((?:[^'\\]|\\.)*)'/;
-  const pm = plainBashRe.exec(body);
-  if (pm) {
-    out.command = pm[1].replace(/\\'/g, "'");
-    const rest = body.replace(plainBashRe, "").replace(/^[\s.]+/g, "").replace(/\.\s*Allow this.*\??$/i, "").trim();
+  // 2. 文件工具外部目录: "... is not permitted to run tool 'X' for path 'Y' (resolves to 'Z')? outside working directory 'CWD'."
+  const toolExt = /is not permitted to run tool '((?:[^'\\]|\\.)*)' for path '((?:[^'\\]|\\.)*)'(?: \(resolves to '([^']*)'\))? outside working directory '((?:[^'\\]|\\.)*)'/;
+  const te = toolExt.exec(body);
+  if (te) {
+    out.type = toolDisplayType(te[1]);
+    out.reason = "external_directory";
+    out.path = unquoteStr(te[2]);
+    out.cwd = unquoteStr(te[4]);
+    out.paths = te[3] && te[3] !== te[2] ? [te[2], `→ ${te[3]}`] : [te[2]];
+    const rest = stripAskSuffix(body.replace(toolExt, ""));
+    if (rest) out.rest = rest;
+    return out;
+  }
+
+  // 3. 普通 bash ask
+  const plainBash = /requested bash command '((?:[^'\\]|\\.)*)'/;
+  const pb = plainBash.exec(body);
+  if (pb) {
+    out.type = "bash";
+    out.reason = "ask";
+    out.command = unquoteStr(pb[1]);
+    const rest = stripAskSuffix(body.replace(plainBash, "").replace(/^[\s.]+/g, ""));
+    if (rest) out.rest = rest;
+    return out;
+  }
+
+  // 4. 工具 ask（read/write/edit/grep/find/ls/web_search/mcp 等）
+  const toolAsk = /requested tool '((?:[^'\\]|\\.)*)'/;
+  const ta = toolAsk.exec(body);
+  if (ta) {
+    out.type = toolDisplayType(ta[1]);
+    out.reason = "ask";
+    const pat = /\(matched '((?:[^'\\]|\\.)*)'\)/.exec(body);
+    if (pat) out.pattern = unquoteStr(pat[1]);
+    const tp = /"path"\s*:\s*"([^"]*)"/.exec(body);
+    if (tp) out.path = tp[1];
+    const rest = stripAskSuffix(body.replace(toolAsk, "").replace(/\(matched '[^']*'\)/g, "").replace(/^[\s.]+/g, ""));
+    if (rest) out.rest = rest;
+    return out;
+  }
+
+  // 5. path 拒绝: "... is not permitted to access path 'X' via tool 'Y'."
+  const pathDeny = /is not permitted to access path '((?:[^'\\]|\\.)*)' via tool '((?:[^'\\]|\\.)*)'/;
+  const pd = pathDeny.exec(body);
+  if (pd) {
+    out.type = toolDisplayType(pd[2]);
+    out.reason = "path";
+    out.path = unquoteStr(pd[1]);
+    const rest = stripAskSuffix(body.replace(pathDeny, ""));
+    if (rest) out.rest = rest;
+    return out;
+  }
+
+  // 6. skill
+  const skillAsk = /requested (?:access to )?skill '((?:[^'\\]|\\.)*)'/;
+  const sk = skillAsk.exec(body);
+  if (sk) {
+    out.type = "skill";
+    out.reason = "ask";
+    const via = /via '([^']*)'/.exec(body);
+    if (via) out.path = via[1];
+    const rest = stripAskSuffix(body.replace(skillAsk, "").replace(/^[\s.]+/g, ""));
+    if (rest) out.rest = rest;
+    return out;
+  }
+
+  // 7. mcp
+  const mcpAsk = /requested MCP target '((?:[^'\\]|\\.)*)'/;
+  const mc = mcpAsk.exec(body);
+  if (mc) {
+    out.type = "mcp";
+    out.reason = "ask";
+    out.path = unquoteStr(mc[1]);
+    const rest = stripAskSuffix(body.replace(mcpAsk, "").replace(/^[\s.]+/g, ""));
+    if (rest) out.rest = rest;
+    return out;
+  }
+
+  // 8. 网络（web search / network access / host）
+  if (/web search|network access|request network|host '[^']*'/i.test(body)) {
+    out.type = "network";
+    out.reason = "ask";
+    const host = /host '([^']*)'/.exec(body);
+    if (host) out.path = host[1];
+    const rest = stripAskSuffix(body);
     if (rest) out.rest = rest;
     return out;
   }
 
   return null;
+}
+
+/** 长文本：默认一行截断，点击展开完整内容。 */
+function TruncatedDetails({ text }: { text: string }) {
+  const [open, setOpen] = useState(false);
+  const needsExpand = text.length > 120 || text.includes("\n");
+  if (!needsExpand) {
+    return <div style={{ color: "var(--text-muted)", fontSize: 12, lineHeight: 1.5, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{text}</div>;
+  }
+  return (
+    <div>
+      <button
+        onClick={() => setOpen((o) => !o)}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
+          width: "100%",
+          padding: "5px 8px",
+          borderRadius: 6,
+          border: "1px solid var(--border)",
+          background: "var(--bg-panel)",
+          color: "var(--text-muted)",
+          cursor: "pointer",
+          fontSize: 12,
+          fontFamily: "var(--font-mono)",
+          textAlign: "left",
+        }}
+      >
+        <span style={{ display: "inline-block", transform: open ? "rotate(90deg)" : "none", transition: "transform 0.12s", flexShrink: 0 }}>▶</span>
+        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>{text.replace(/\n/g, " ")}</span>
+      </button>
+      {open && (
+        <pre style={{ margin: "6px 0 0", padding: 10, maxHeight: 220, overflow: "auto", borderRadius: 7, border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text-muted)", fontSize: 12, lineHeight: 1.5, fontFamily: "var(--font-mono)", whiteSpace: "pre-wrap", wordBreak: "break-all" }}>{text}</pre>
+      )}
+    </div>
+  );
 }
 
 
@@ -1144,33 +1268,58 @@ function ExtensionDialog({
           }}
         >
         <div style={{ padding: "12px 14px", borderBottom: "1px solid var(--border)" }}>
-          <div style={{ color: "var(--text)", fontSize: 14, fontWeight: 650 }}>{parsed?.heading || request.title}</div>
+          {parsed ? (
+            <div style={{ color: "var(--text)", fontSize: 14, fontWeight: 650 }}>{parsed.heading}</div>
+          ) : (
+            <div style={{ color: "var(--text)", fontSize: 14, fontWeight: 650 }}>{t("chat.permRequest")}</div>
+          )}
           <div style={{ marginTop: 3, color: "var(--text-dim)", fontSize: 11, fontFamily: "var(--font-mono)" }}>{t("chat.extensionRequest")}</div>
         </div>
 
         <div style={{ padding: 14 }}>
+          {!parsed && (request.method === "select" || request.method === "confirm") && (
+            <div style={{ marginBottom: 12 }}><TruncatedDetails text={request.title} /></div>
+          )}
           {parsed && (request.method === "select" || request.method === "confirm") && (
             <div style={{ display: "grid", gap: 10, marginBottom: 12 }}>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                <span style={{ padding: "2px 8px", borderRadius: 10, background: "var(--accent)", color: "#fff", fontSize: 11, fontFamily: "var(--font-mono)", fontWeight: 650 }}>{parsed.type}</span>
+                {parsed.reason && (
+                  <span style={{ padding: "2px 8px", borderRadius: 10, border: "1px solid var(--border)", color: "var(--text-muted)", fontSize: 11, fontFamily: "var(--font-mono)" }}>{parsed.reason}</span>
+                )}
+                {parsed.pattern && (
+                  <span style={{ padding: "2px 8px", borderRadius: 10, border: "1px solid var(--border)", color: "var(--text-muted)", fontSize: 11, fontFamily: "var(--font-mono)" }}>{t("chat.permMatched")}: {parsed.pattern}</span>
+                )}
+              </div>
               {parsed.command && (
                 <div>
                   <div style={{ color: "var(--text-dim)", fontSize: 11, fontFamily: "var(--font-mono)", marginBottom: 4 }}>{t("chat.permCommand")}</div>
                   <pre style={{ margin: 0, padding: 10, borderRadius: 7, border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text)", fontSize: 12, lineHeight: 1.5, fontFamily: "var(--font-mono)", whiteSpace: "pre-wrap", wordBreak: "break-all", maxHeight: 200, overflow: "auto" }}>{parsed.command}</pre>
                 </div>
               )}
-              {parsed.paths && parsed.paths.list.length > 0 && (
+              {parsed.path && !parsed.command && (
+                <div>
+                  <div style={{ color: "var(--text-dim)", fontSize: 11, fontFamily: "var(--font-mono)", marginBottom: 4 }}>{t("chat.permPath")}</div>
+                  <div title={parsed.path} style={{ padding: "8px 10px", borderRadius: 7, border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text)", fontSize: 12, fontFamily: "var(--font-mono)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{parsed.path}</div>
+                </div>
+              )}
+              {parsed.paths && parsed.paths.length > 0 && (
                 <div>
                   <div style={{ color: "var(--text-dim)", fontSize: 11, fontFamily: "var(--font-mono)", marginBottom: 4 }}>
                     {t("chat.permExternalPaths")}
-                    {parsed.paths.cwd ? `（工作目录: ${parsed.paths.cwd}）` : ""}
+                    {parsed.cwd ? `（${t("chat.permCwd")}: ${parsed.cwd}）` : ""}
                   </div>
                   <div style={{ display: "grid", gap: 4 }}>
-                    {parsed.paths.list.map((p, i) => (
+                    {parsed.paths.map((p, i) => (
                       <div key={i} title={p} style={{ padding: "4px 8px", borderRadius: 5, border: "1px solid var(--border)", background: "var(--bg-panel)", color: "var(--text-muted)", fontSize: 12, fontFamily: "var(--font-mono)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p}</div>
                     ))}
                   </div>
                 </div>
               )}
-              {parsed.rest && <div style={{ color: "var(--text-muted)", fontSize: 12, lineHeight: 1.5 }}>{parsed.rest}</div>}
+              {parsed.cwd && !parsed.paths && (
+                <div style={{ color: "var(--text-dim)", fontSize: 11, fontFamily: "var(--font-mono)" }}>{t("chat.permCwd")}: {parsed.cwd}</div>
+              )}
+              {parsed.rest && <TruncatedDetails text={parsed.rest} />}
             </div>
           )}
           {request.method === "confirm" && (
