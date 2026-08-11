@@ -15,7 +15,7 @@
 
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { join, dirname } from "node:path";
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { getAgentDir, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 const STATUS_KEY = "perm-mode";
 const EXT_NAME = "pi-permission-system";
@@ -93,7 +93,7 @@ const BUILD_PROFILE = {
 };
 
 const projectConfigPath = (cwd: string) => join(cwd, ".pi", "extensions", EXT_NAME, "config.json");
-const globalConfigPath = () => join(process.env.HOME ?? "", ".pi", "agent", "extensions", EXT_NAME, "config.json");
+const globalConfigPath = () => join(getAgentDir(), "extensions", EXT_NAME, "config.json");
 
 /** 检测当前模式：优先项目配置，其次全局配置。write 策略 ask→ask 模式，allow→build 模式。 */
 function detectMode(cwd: string): string | undefined {
@@ -107,9 +107,9 @@ function detectMode(cwd: string): string | undefined {
         if (write["*"] === "ask") return "ask";
         if (write["*"] === "allow") return "build";
       }
-      return undefined;
+      continue; // 该文件可读但 write 结构不匹配，回退下一个（全局）
     } catch {
-      // try next path
+      // 文件不存在/不可读，继续尝试下一个
     }
   }
   return undefined;
@@ -148,10 +148,9 @@ export default async function (pi: ExtensionAPI) {
         }
         const dest = applyMode(ctx.cwd, mode);
         ctx.ui.notify(`权限模式切换为 ${mode}（配置: ${dest}），正在 reload...`, "info");
+        // reload 前刷新状态；reload 后旧 ctx 失效，由 session_start 事件重新刷新
         updateStatus(ctx);
         await ctx.reload();
-        ctx.ui.notify(`已生效，当前模式: ${detectMode(ctx.cwd) ?? "?"}`, "info");
-        updateStatus(ctx);
       } else {
         ctx.ui.notify(`当前权限模式: ${detectMode(ctx.cwd) ?? "unknown"}`, "info");
         updateStatus(ctx);
