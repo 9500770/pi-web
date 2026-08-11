@@ -93,10 +93,20 @@ const BUILD_PROFILE = {
 };
 
 const projectConfigPath = (cwd: string) => join(cwd, ".pi", "extensions", EXT_NAME, "config.json");
+// 旁路标记文件：config.json 是 strict schema（未知字段会被拒），
+// 所以模式标识写在这个独立文件里，pi-permission-system 不读它。
+const modeFilePath = (cwd: string) => join(cwd, ".pi", "extensions", EXT_NAME, ".perm-mode");
 const globalConfigPath = () => join(getAgentDir(), "extensions", EXT_NAME, "config.json");
 
 /** 检测当前模式：优先项目配置，其次全局配置。write 策略 ask→ask 模式，allow→build 模式。 */
 function detectMode(cwd: string): string | undefined {
+  // 优先读旁路标记文件（权威）
+  try {
+    const marker = readFileSync(modeFilePath(cwd), "utf-8").trim().toLowerCase();
+    if (marker === "ask" || marker === "build") return marker;
+  } catch {
+    // 无标记文件 → 回退到 write 策略判断（兼容旧配置）
+  }
   for (const p of [projectConfigPath(cwd), globalConfigPath()]) {
     try {
       const write = JSON.parse(readFileSync(p, "utf-8")).permission?.write;
@@ -120,6 +130,8 @@ function applyMode(cwd: string, mode: "ask" | "build"): string {
   const dest = projectConfigPath(cwd);
   mkdirSync(dirname(dest), { recursive: true });
   writeFileSync(dest, JSON.stringify(mode === "build" ? BUILD_PROFILE : ASK_PROFILE, null, 2) + "\n", "utf-8");
+  // 写旁路标记（与 config.json 同步，模式感知的权威来源）
+  writeFileSync(modeFilePath(cwd), mode + "\n", "utf-8");
   return dest;
 }
 
