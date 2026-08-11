@@ -174,6 +174,8 @@ export const zhCNLocale: LocalePlugin = {
     "chat.openWrittenFile": "打开 {name}",
     "chat.loadEarlier": "向上滚动以加载更早的消息（隐藏 {count} 条）",
     "chat.extensionRequest": "扩展请求",
+    "chat.permCommand": "请求命令",
+    "chat.permExternalPaths": "外部路径",
     "chat.cancel": "取消",
     "chat.confirm": "确认",
     "chat.submit": "提交",

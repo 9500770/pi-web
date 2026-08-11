@@ -1036,6 +1036,67 @@ function NoticeShelf({ notices, floating = false, align = "left" }: { notices: N
 
 type ExtensionDialogRequest = Extract<ExtensionUiRequest, { method: "select" | "confirm" | "input" | "editor" }>;
 
+/** 解析 pi-permission-system 的长文本审批消息为结构化块。 */
+interface ParsedPermissionPrompt {
+  heading: string;
+  command?: string;
+  paths?: { cwd?: string; list: string[] };
+  rest?: string;
+}
+
+function parsePermissionPrompt(title: string): ParsedPermissionPrompt | null {
+  const lines = title.split("\n");
+  const heading = lines[0]?.trim() ?? "";
+  const body = lines.slice(1).join("\n").trim();
+  if (!body) return null;
+  const out: ParsedPermissionPrompt = { heading };
+
+  // bash 外部目录: "... requested bash command 'CMD' which references path(s)
+  // outside working directory 'CWD': P1, P2. Allow this external directory access?"
+  const bashRe = /requested bash command '((?:[^'\\]|\\.)*)'([\s\S]*)$/;
+  const m = bashRe.exec(body);
+  if (m) {
+    out.command = m[1].replace(/\\'/g, "'");
+    let remainder = m[2] ?? "";
+    const pathsRe = /references path\(s\) outside working directory '((?:[^'\\]|\\.)*)':\s*([^]*?)(?:\.\s*Allow this external directory access\??)?\.?\s*$/;
+    const p = pathsRe.exec(remainder);
+    if (p) {
+      out.paths = {
+        cwd: p[1].replace(/\\'/g, "'"),
+        list: p[2].split(",").map((s) => s.trim()).filter(Boolean),
+      };
+      remainder = remainder.slice(0, remainder.length - p[0].length);
+    }
+    remainder = remainder.replace(/^which\b/i, "").replace(/\.\s*Allow this external directory access\??$/i, "").trim();
+    if (remainder) out.rest = remainder;
+    return out;
+  }
+
+  // 文件工具外部目录: "... requested tool 'X' for path 'Y' outside working directory 'CWD'..."
+  const toolRe = /requested tool '((?:[^'\\]|\\.)*)' for path '((?:[^'\\]|\\.)*)' outside working directory '((?:[^'\\]|\\.)*)'/;
+  const tm = toolRe.exec(body);
+  if (tm) {
+    out.command = `${tm[1]}: ${tm[2]}`;
+    out.paths = { cwd: tm[3], list: [tm[2]] };
+    const rest = body.replace(toolRe, "").replace(/\.\s*Allow this.*\??$/i, "").trim();
+    if (rest) out.rest = rest;
+    return out;
+  }
+
+  // 普通 bash ask: "... requested bash command 'CMD'. Allow this command?"
+  const plainBashRe = /requested bash command '((?:[^'\\]|\\.)*)'/;
+  const pm = plainBashRe.exec(body);
+  if (pm) {
+    out.command = pm[1].replace(/\\'/g, "'");
+    const rest = body.replace(plainBashRe, "").replace(/^[\s.]+/g, "").replace(/\.\s*Allow this.*\??$/i, "").trim();
+    if (rest) out.rest = rest;
+    return out;
+  }
+
+  return null;
+}
+
+
 function ExtensionDialog({
   request,
   onRespond,
@@ -1047,11 +1108,10 @@ function ExtensionDialog({
 }) {
   const { t } = useI18n();
   const [value, setValue] = useState(request.method === "editor" ? request.prefill ?? "" : "");
-  const [detailsOpen, setDetailsOpen] = useState(false);
+  const parsed = parsePermissionPrompt(request.title);
 
   useEffect(() => {
     setValue(request.method === "editor" ? request.prefill ?? "" : "");
-    setDetailsOpen(false);
   }, [request]);
 
   const submitValue = () => {
@@ -1084,11 +1144,35 @@ function ExtensionDialog({
           }}
         >
         <div style={{ padding: "12px 14px", borderBottom: "1px solid var(--border)" }}>
-          <div style={{ color: "var(--text)", fontSize: 14, fontWeight: 650 }}>{request.title}</div>
+          <div style={{ color: "var(--text)", fontSize: 14, fontWeight: 650 }}>{parsed?.heading || request.title}</div>
           <div style={{ marginTop: 3, color: "var(--text-dim)", fontSize: 11, fontFamily: "var(--font-mono)" }}>{t("chat.extensionRequest")}</div>
         </div>
 
         <div style={{ padding: 14 }}>
+          {parsed && (request.method === "select" || request.method === "confirm") && (
+            <div style={{ display: "grid", gap: 10, marginBottom: 12 }}>
+              {parsed.command && (
+                <div>
+                  <div style={{ color: "var(--text-dim)", fontSize: 11, fontFamily: "var(--font-mono)", marginBottom: 4 }}>{t("chat.permCommand")}</div>
+                  <pre style={{ margin: 0, padding: 10, borderRadius: 7, border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text)", fontSize: 12, lineHeight: 1.5, fontFamily: "var(--font-mono)", whiteSpace: "pre-wrap", wordBreak: "break-all", maxHeight: 200, overflow: "auto" }}>{parsed.command}</pre>
+                </div>
+              )}
+              {parsed.paths && parsed.paths.list.length > 0 && (
+                <div>
+                  <div style={{ color: "var(--text-dim)", fontSize: 11, fontFamily: "var(--font-mono)", marginBottom: 4 }}>
+                    {t("chat.permExternalPaths")}
+                    {parsed.paths.cwd ? `（工作目录: ${parsed.paths.cwd}）` : ""}
+                  </div>
+                  <div style={{ display: "grid", gap: 4 }}>
+                    {parsed.paths.list.map((p, i) => (
+                      <div key={i} title={p} style={{ padding: "4px 8px", borderRadius: 5, border: "1px solid var(--border)", background: "var(--bg-panel)", color: "var(--text-muted)", fontSize: 12, fontFamily: "var(--font-mono)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p}</div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {parsed.rest && <div style={{ color: "var(--text-muted)", fontSize: 12, lineHeight: 1.5 }}>{parsed.rest}</div>}
+            </div>
+          )}
           {request.method === "confirm" && (
             <div style={{ color: "var(--text-muted)", fontSize: 13, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{request.message}</div>
           )}
@@ -1161,56 +1245,6 @@ function ExtensionDialog({
                 fontFamily: "var(--font-mono)",
               }}
             />
-          )}
-
-          {request.details && (
-            <div style={{ marginTop: 10 }}>
-              <button
-                onClick={() => setDetailsOpen((open) => !open)}
-                title={request.details}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                  width: "100%",
-                  padding: "6px 10px",
-                  borderRadius: 6,
-                  border: "1px solid var(--border)",
-                  background: "var(--bg-panel)",
-                  color: "var(--text-muted)",
-                  cursor: "pointer",
-                  fontSize: 12,
-                  fontFamily: "var(--font-mono)",
-                  textAlign: "left",
-                }}
-              >
-                <span style={{ display: "inline-block", transform: detailsOpen ? "rotate(90deg)" : "none", transition: "transform 0.12s", flexShrink: 0 }}>▶</span>
-                <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>
-                  {request.details}
-                </span>
-              </button>
-              {detailsOpen && (
-                <pre
-                  style={{
-                    margin: "8px 0 0",
-                    padding: 10,
-                    maxHeight: 220,
-                    overflow: "auto",
-                    borderRadius: 7,
-                    border: "1px solid var(--border)",
-                    background: "var(--bg)",
-                    color: "var(--text-muted)",
-                    fontSize: 12,
-                    lineHeight: 1.5,
-                    fontFamily: "var(--font-mono)",
-                    whiteSpace: "pre-wrap",
-                    wordBreak: "break-all",
-                  }}
-                >
-                  {request.details}
-                </pre>
-              )}
-            </div>
           )}
         </div>
 
