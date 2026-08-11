@@ -1,0 +1,51 @@
+#!/bin/bash
+#
+# perm-mode — 切换 pi-permission-system 的配置模式
+#
+# 用法:
+#   perm-mode default          # 模式1: 项目内读+常用读bash 自动, 其他 ask
+#   perm-mode yolo             # 模式2: 项目内读写+bash 自动, /tmp 读放行, 其他 ask
+#   perm-mode install          # 初始化 pi-permission-system 配置目录
+#
+# 切换后需 /reload 或重启 pi 会话生效（配置在 resources_discover 时重载）。
+#
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PPS_DIR="${PPS_DIR:-$HOME/.pi/agent/extensions/pi-permission-system}"
+DEST="${PPS_DIR}/config.json"
+
+usage() {
+  echo "用法: perm-mode [default|yolo|install]"
+  echo "  default  模式1: 项目内读取+常用读bash自动, 其他 ask"
+  echo "  yolo     模式2: 项目内读写+bash自动, /tmp读放行, 其他 ask"
+  echo "  install  初始化配置目录（插件未安装时提示）"
+}
+
+case "${1:-}" in
+  default|yolo)
+    SRC="$SCRIPT_DIR/config.$1.json"
+    if [ ! -f "$SRC" ]; then
+      echo "配置文件不存在: $SRC" >&2
+      exit 1
+    fi
+    mkdir -p "$PPS_DIR"
+    cp "$SRC" "$DEST"
+    echo "已切换到 $1 模式 -> $DEST"
+    echo "运行 /reload 或重启 pi 会话生效"
+    ;;
+  install)
+    if [ ! -d "$PPS_DIR" ]; then
+      echo "未检测到 pi-permission-system 扩展目录: $PPS_DIR" >&2
+      echo "请先安装插件: pi install npm:@gotgenes/pi-permission-system" >&2
+      exit 1
+    fi
+    mkdir -p "$PPS_DIR"
+    echo "配置目录就绪: $PPS_DIR"
+    echo "运行 'perm-mode default' 或 'perm-mode yolo' 写入配置"
+    ;;
+  *)
+    usage
+    exit 1
+    ;;
+esac
