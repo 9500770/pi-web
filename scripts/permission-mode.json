@@ -16,7 +16,8 @@
         "writable": true,
         "allowWrite": [
           ".",
-          "/tmp"
+          "/tmp",
+          "/private/tmp"
         ],
         "denyWrite": [],
         "denyRead": [
@@ -74,7 +75,8 @@
         "writable": false,
         "allowWrite": [
           ".",
-          "/tmp"
+          "/tmp",
+          "/private/tmp"
         ],
         "denyWrite": [],
         "denyRead": [
@@ -118,7 +120,8 @@
         "writable": true,
         "allowWrite": [
           ".",
-          "/tmp"
+          "/tmp",
+          "/private/tmp"
         ],
         "denyWrite": [],
         "denyRead": [
