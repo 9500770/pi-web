@@ -18,12 +18,14 @@
  * 依赖: pi-permission-system（策略执行）；项目需信任（/trust）项目级配置才加载。
  */
 
-import { readFileSync, writeFileSync, mkdirSync, existsSync, unlinkSync, symlinkSync, readlinkSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync, existsSync, unlinkSync, symlinkSync, readlinkSync, readdirSync } from "node:fs";
 import { join, dirname, basename } from "node:path";
 import { getAgentDir, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 const STATUS_KEY = "perm-mode";
 const EXT_NAME = "pi-permission-system";
+// 全局模式：default / yolo 不写项目配置，直接控制全局配置（yoloMode 开关）
+const GLOBAL_MODES = new Set(["default", "yolo"]);
 
 // ── 内置模式模板（可自由增删——新增 key 即新增模式）──────────────────
 const MODE_TEMPLATES: Record<string, object> = {
@@ -117,9 +119,9 @@ function resolveTemplate(cwd: string, mode: string): object | undefined {
 
 /** 可用的模式名：内置 + 项目目录里已有的 config_<name>.json。 */
 function listModes(cwd: string): string[] {
-  const names = new Set(Object.keys(MODE_TEMPLATES));
+  const names = new Set([...Array.from(GLOBAL_MODES), ...Object.keys(MODE_TEMPLATES)]);
   try {
-    for (const f of require("node:fs").readdirSync(configDir(cwd))) {
+    for (const f of readdirSync(configDir(cwd))) {
       const m = /^config_(.+)\.json$/.exec(f);
       if (m) names.add(m[1]);
     }
@@ -162,10 +164,39 @@ function detectMode(cwd: string): string {
   return "default";
 }
 
-/** 切换：找模板 → 写 config_<mode>.json（首次）→ 重建软链接。 */
+/** 写全局 yoloMode 开关（default=false / yolo=true）。 */
+function setGlobalYolo(enabled: boolean): string {
+  const g = globalConfigPath();
+  mkdirSync(dirname(g), { recursive: true });
+  let cfg: Record<string, unknown> = {};
+  try { cfg = JSON.parse(readFileSync(g, "utf-8")) as Record<string, unknown>; } catch { /* 无配置 */ }
+  cfg.yoloMode = enabled;
+  writeFileSync(g, JSON.stringify(cfg, null, 2) + "\n", "utf-8");
+  return g;
+}
+
+/** 移除项目级配置（软链接 + 模板文件），回到全局模式。 */
+function clearProjectConfig(cwd: string): void {
+  const dir = configDir(cwd);
+  const dest = configPath(cwd);
+  try { unlinkSync(dest); } catch { /* 不存在 */ }
+  try {
+    for (const f of readdirSync(dir)) {
+      if (/^config_.+\.json$/.test(f)) unlinkSync(join(dir, f));
+    }
+  } catch { /* 目录不存在 */ }
+}
+
+/** 切换：全局模式（default/yolo）→ 清项目配置 + 设全局 yoloMode；其他 → 项目软链接。 */
 function applyMode(cwd: string, mode: string): string | undefined {
+  if (GLOBAL_MODES.has(mode)) {
+    clearProjectConfig(cwd);
+    return setGlobalYolo(mode === "yolo") + ` (global:${mode})`;
+  }
   const tpl = resolveTemplate(cwd, mode);
   if (!tpl) return undefined;
+  // 切项目模式时把全局 yolo 复位为 default，保证三模式互斥
+  setGlobalYolo(false);
   const dir = configDir(cwd);
   mkdirSync(dir, { recursive: true });
   const file = templatePath(cwd, mode);
