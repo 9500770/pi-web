@@ -1317,7 +1317,7 @@ function ExtensionDialog({
               {parsed.command && (
                 <div>
                   <div style={{ color: "var(--text-dim)", fontSize: 11, fontFamily: "var(--font-mono)", marginBottom: 4 }}>{t("chat.permCommand")}</div>
-                  <pre style={{ margin: 0, padding: 10, borderRadius: 7, border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text)", fontSize: 12, lineHeight: 1.5, fontFamily: "var(--font-mono)", whiteSpace: "pre-wrap", wordBreak: "break-all", maxHeight: 200, overflow: "auto" }}>{parsed.command}</pre>
+                  <pre style={{ margin: 0, padding: 10, borderRadius: 7, border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text)", fontSize: 12, lineHeight: 1.5, fontFamily: "var(--font-mono)", whiteSpace: "pre-wrap", wordBreak: "break-word", overflowWrap: "anywhere" }}>{parsed.command}</pre>
                 </div>
               )}
               {parsed.path && !parsed.command && (
