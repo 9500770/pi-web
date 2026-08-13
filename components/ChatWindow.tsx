@@ -1413,19 +1413,22 @@ function ExtensionDialog({
             <div style={{ color: "var(--text-muted)", fontSize: 13, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{request.message}</div>
           )}
           {request.method === "select" && (
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
               {request.options.map((option) => (
                 <button
                   key={option}
                   onClick={() => onRespond(request, { value: option })}
                   style={{
-                    padding: "4px 10px",
+                    padding: "5px 8px",
                     borderRadius: 6,
                     border: "1px solid var(--border)",
                     background: "var(--bg-panel)",
                     color: "var(--text)",
                     cursor: "pointer",
                     fontSize: 12,
+                    textAlign: "center",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
                     whiteSpace: "nowrap",
                   }}
                 >
