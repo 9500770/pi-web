@@ -182,6 +182,7 @@ export const enLocale: LocalePlugin = {
     "chat.permMatched": "matched",
     "chat.collapse": "collapse",
     "chat.cancel": "Cancel",
+    "chat.expand": "Expand",
     "chat.confirm": "Confirm",
     "chat.submit": "Submit",
     "chat.extensionInput": "Extension terminal input",

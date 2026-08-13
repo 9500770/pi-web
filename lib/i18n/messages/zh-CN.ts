@@ -182,6 +182,7 @@ export const zhCNLocale: LocalePlugin = {
     "chat.permMatched": "匹配规则",
     "chat.collapse": "收起",
     "chat.cancel": "取消",
+    "chat.expand": "展开",
     "chat.confirm": "确认",
     "chat.submit": "提交",
     "chat.extensionInput": "扩展终端输入",

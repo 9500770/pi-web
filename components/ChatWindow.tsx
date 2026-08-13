@@ -1255,6 +1255,7 @@ function ExtensionDialog({
 }) {
   const { t } = useI18n();
   const [value, setValue] = useState(request.method === "editor" ? request.prefill ?? "" : "");
+  const [collapsed, setCollapsed] = useState(false);
   const parsed = parsePermissionPrompt(request.title);
 
   useEffect(() => {
@@ -1268,6 +1269,48 @@ function ExtensionDialog({
       onRespond(request, { value });
     }
   };
+
+  // 收起态：单行条，只显示类型徽章 + 一行摘要 + 展开按钮（手机友好）
+  if (collapsed) {
+    const summary = parsed?.command
+      || parsed?.path
+      || (parsed?.paths && parsed.paths[0])
+      || (parsed?.heading ? parsed.heading : request.title.replace(/\n/g, " "));
+    return (
+      <div
+        style={{
+          padding: `0 ${CHAT_COLUMN_PADDING}px`,
+          paddingRight: isMobile ? CHAT_COLUMN_PADDING : CHAT_INPUT_RIGHT_PADDING,
+        }}
+      >
+        <div style={{ maxWidth: 820, margin: "0 auto" }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              margin: "8px 0",
+              padding: "5px 10px",
+              borderRadius: 8,
+              border: "1px solid var(--border)",
+              background: "var(--bg-panel)",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.10)",
+              cursor: "pointer",
+            }}
+            onClick={() => setCollapsed(false)}
+            role="button"
+            title={t("chat.expand")}
+          >
+            {parsed && (
+              <span style={{ padding: "1px 7px", borderRadius: 9, background: "var(--accent)", color: "#fff", fontSize: 10, fontFamily: "var(--font-mono)", flexShrink: 0 }}>{parsed.type}</span>
+            )}
+            <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "var(--text-muted)", fontSize: 11, fontFamily: "var(--font-mono)" }}>{summary}</span>
+            <span style={{ flexShrink: 0, color: "var(--text-dim)", fontSize: 11 }}>{t("chat.expand")} ▢</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -1290,13 +1333,34 @@ function ExtensionDialog({
             margin: "8px 0",
           }}
         >
-        <div style={{ padding: "12px 14px", borderBottom: "1px solid var(--border)" }}>
-          {parsed ? (
-            <div style={{ color: "var(--text)", fontSize: 14, fontWeight: 650 }}>{parsed.heading}</div>
-          ) : (
-            <div style={{ color: "var(--text)", fontSize: 14, fontWeight: 650 }}>{t("chat.permRequest")}</div>
-          )}
-          <div style={{ marginTop: 3, color: "var(--text-dim)", fontSize: 11, fontFamily: "var(--font-mono)" }}>{t("chat.extensionRequest")}</div>
+        <div style={{ padding: "12px 14px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+          <div style={{ minWidth: 0 }}>
+            {parsed ? (
+              <div style={{ color: "var(--text)", fontSize: 14, fontWeight: 650, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{parsed.heading}</div>
+            ) : (
+              <div style={{ color: "var(--text)", fontSize: 14, fontWeight: 650, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t("chat.permRequest")}</div>
+            )}
+            <div style={{ marginTop: 3, color: "var(--text-dim)", fontSize: 11, fontFamily: "var(--font-mono)" }}>{t("chat.extensionRequest")}</div>
+          </div>
+          <button
+            onClick={() => setCollapsed(true)}
+            title={t("chat.collapse")}
+            aria-label={t("chat.collapse")}
+            style={{
+              flexShrink: 0,
+              width: 26,
+              height: 26,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              borderRadius: 6,
+              border: "1px solid var(--border)",
+              background: "var(--bg)",
+              color: "var(--text-muted)",
+              cursor: "pointer",
+              fontSize: 14,
+            }}
+          >—</button>
         </div>
 
         <div style={{ padding: 14 }}>
@@ -1349,21 +1413,20 @@ function ExtensionDialog({
             <div style={{ color: "var(--text-muted)", fontSize: 13, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{request.message}</div>
           )}
           {request.method === "select" && (
-            <div style={{ display: "grid", gap: 8 }}>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
               {request.options.map((option) => (
                 <button
                   key={option}
                   onClick={() => onRespond(request, { value: option })}
                   style={{
-                    width: "100%",
-                    padding: "9px 10px",
-                    borderRadius: 7,
+                    padding: "4px 10px",
+                    borderRadius: 6,
                     border: "1px solid var(--border)",
                     background: "var(--bg-panel)",
                     color: "var(--text)",
                     cursor: "pointer",
-                    textAlign: "left",
-                    fontSize: 13,
+                    fontSize: 12,
+                    whiteSpace: "nowrap",
                   }}
                 >
                   {option}
@@ -1420,16 +1483,17 @@ function ExtensionDialog({
           )}
         </div>
 
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, padding: "10px 14px", borderTop: "1px solid var(--border)", background: "var(--bg-panel)" }}>
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 6, padding: "8px 12px", borderTop: "1px solid var(--border)", background: "var(--bg-panel)" }}>
           <button
             onClick={() => onRespond(request, { cancelled: true })}
             style={{
-              padding: "6px 10px",
+              padding: "4px 10px",
               borderRadius: 6,
               border: "1px solid var(--border)",
               background: "var(--bg)",
               color: "var(--text-muted)",
               cursor: "pointer",
+              fontSize: 12,
             }}
           >
              {t("chat.cancel")}
@@ -1438,12 +1502,13 @@ function ExtensionDialog({
             <button
               onClick={submitValue}
               style={{
-                padding: "6px 10px",
+                padding: "4px 10px",
                 borderRadius: 6,
                 border: "1px solid var(--accent)",
                 background: "var(--accent)",
                 color: "#fff",
                 cursor: "pointer",
+                fontSize: 12,
               }}
             >
                {t("chat.confirm")}
@@ -1452,12 +1517,13 @@ function ExtensionDialog({
             <button
               onClick={submitValue}
               style={{
-                padding: "6px 10px",
+                padding: "4px 10px",
                 borderRadius: 6,
                 border: "1px solid var(--accent)",
                 background: "var(--accent)",
                 color: "#fff",
                 cursor: "pointer",
+                fontSize: 12,
               }}
             >
                {t("chat.submit")}
